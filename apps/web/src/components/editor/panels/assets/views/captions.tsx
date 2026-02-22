@@ -10,8 +10,11 @@ import {
 import { useState, useRef } from "react";
 import { extractTimelineAudio } from "@/lib/media/mediabunny";
 import { useEditor } from "@/hooks/use-editor";
-import { DEFAULT_TEXT_ELEMENT } from "@/constants/text-constants";
 import { TRANSCRIPTION_LANGUAGES } from "@/constants/transcription-constants";
+import {
+	SUBTITLE_TEMPLATES,
+	type SubtitleTemplate,
+} from "@/constants/subtitle-constants";
 import type {
 	TranscriptionLanguage,
 	TranscriptionProgress,
@@ -25,6 +28,9 @@ import { Label } from "@/components/ui/label";
 export function Captions() {
 	const [selectedLanguage, setSelectedLanguage] =
 		useState<TranscriptionLanguage>("auto");
+	const [selectedTemplate, setSelectedTemplate] = useState<SubtitleTemplate>(
+		SUBTITLE_TEMPLATES[0],
+	);
 	const [isProcessing, setIsProcessing] = useState(false);
 	const [processingStep, setProcessingStep] = useState("");
 	const [error, setError] = useState<string | null>(null);
@@ -68,18 +74,24 @@ export function Captions() {
 				index: 0,
 			});
 
+			const {
+				templateId: _templateId,
+				templateName: _templateName,
+				...templateStyle
+			} = selectedTemplate;
+
 			for (let i = 0; i < captionChunks.length; i++) {
 				const caption = captionChunks[i];
 				editor.timeline.insertElement({
 					placement: { mode: "explicit", trackId: captionTrackId },
 					element: {
-						...DEFAULT_TEXT_ELEMENT,
+						...templateStyle,
 						name: `Caption ${i + 1}`,
 						content: caption.text,
 						duration: caption.duration,
 						startTime: caption.startTime,
-						fontSize: 65,
-						fontWeight: "bold",
+						trimStart: 0,
+						trimEnd: 0,
 					},
 				});
 			}
@@ -107,29 +119,83 @@ export function Captions() {
 		setSelectedLanguage(matchedLanguage.code);
 	};
 
+	const handleTemplateChange = ({ value }: { value: string }) => {
+		const template = SUBTITLE_TEMPLATES.find(
+			(t) => t.templateId === value,
+		);
+		if (template) {
+			setSelectedTemplate(template);
+		}
+	};
+
 	return (
 		<BaseView
 			ref={containerRef}
 			className="flex h-full flex-col justify-between"
 		>
-			<div className="flex flex-col gap-3">
-				<Label>Language</Label>
-				<Select
-					value={selectedLanguage}
-					onValueChange={(value) => handleLanguageChange({ value })}
-				>
-					<SelectTrigger>
-						<SelectValue placeholder="Select a language" />
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value="auto">Auto detect</SelectItem>
-						{TRANSCRIPTION_LANGUAGES.map((language) => (
-							<SelectItem key={language.code} value={language.code}>
-								{language.name}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
+			<div className="flex flex-col gap-5">
+				<div className="flex flex-col gap-3">
+					<Label>Language</Label>
+					<Select
+						value={selectedLanguage}
+						onValueChange={(value) => handleLanguageChange({ value })}
+					>
+						<SelectTrigger>
+							<SelectValue placeholder="Select a language" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="auto">Auto detect</SelectItem>
+							{TRANSCRIPTION_LANGUAGES.map((language) => (
+								<SelectItem key={language.code} value={language.code}>
+									{language.name}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+				</div>
+
+				<div className="flex flex-col gap-3">
+					<Label>Subtitle Style</Label>
+					<Select
+						value={selectedTemplate.templateId}
+						onValueChange={(value) => handleTemplateChange({ value })}
+					>
+						<SelectTrigger>
+							<SelectValue placeholder="Select a style" />
+						</SelectTrigger>
+						<SelectContent>
+							{SUBTITLE_TEMPLATES.map((template) => (
+								<SelectItem
+									key={template.templateId}
+									value={template.templateId}
+								>
+									{template.templateName}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+
+					<div
+						className="flex items-center justify-center rounded-md border p-4"
+						style={{ backgroundColor: "#1a1a2e", minHeight: 60 }}
+					>
+						<span
+							style={{
+								fontSize: 14,
+								fontFamily: selectedTemplate.fontFamily,
+								color: selectedTemplate.color,
+								backgroundColor: selectedTemplate.backgroundColor,
+								fontWeight: selectedTemplate.fontWeight,
+								fontStyle: selectedTemplate.fontStyle,
+								textDecoration: selectedTemplate.textDecoration,
+								padding: "2px 6px",
+								borderRadius: 2,
+							}}
+						>
+							{selectedTemplate.templateName} Preview
+						</span>
+					</div>
+				</div>
 			</div>
 
 			<div className="flex flex-col gap-4">
