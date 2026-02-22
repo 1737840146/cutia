@@ -1,6 +1,7 @@
 "use client";
 
 import { useTimelineStore } from "@/stores/timeline-store";
+import { useMediaPreviewStore } from "@/stores/media-preview-store";
 import { useActionHandler } from "@/hooks/actions/use-action-handler";
 import { useEditor } from "../use-editor";
 import { useElementSelection } from "../timeline/element/use-element-selection";
@@ -15,6 +16,7 @@ export function useEditorActions() {
 	useActionHandler(
 		"toggle-play",
 		() => {
+			useMediaPreviewStore.getState().clearSelection();
 			editor.playback.toggle();
 		},
 		undefined,

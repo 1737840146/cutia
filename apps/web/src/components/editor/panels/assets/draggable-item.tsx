@@ -21,6 +21,7 @@ export interface DraggableItemProps {
 	dragData: TimelineDragData;
 	onDragStart?: ({ e }: { e: React.DragEvent }) => void;
 	onAddToTimeline?: ({ currentTime }: { currentTime: number }) => void;
+	onClick?: () => void;
 	aspectRatio?: number;
 	className?: string;
 	containerClassName?: string;
@@ -30,6 +31,7 @@ export interface DraggableItemProps {
 	variant?: "card" | "compact";
 	isDraggable?: boolean;
 	isHighlighted?: boolean;
+	isSelected?: boolean;
 }
 
 export function DraggableItem({
@@ -38,6 +40,7 @@ export function DraggableItem({
 	dragData,
 	onDragStart,
 	onAddToTimeline,
+	onClick,
 	aspectRatio = 16 / 9,
 	className = "",
 	containerClassName,
@@ -47,12 +50,15 @@ export function DraggableItem({
 	variant = "card",
 	isDraggable = true,
 	isHighlighted = false,
+	isSelected = false,
 }: DraggableItemProps) {
 	const [isDragging, setIsDragging] = useState(false);
 	const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
 	const dragRef = useRef<HTMLDivElement>(null);
+	const didDragRef = useRef(false);
 	const editor = useEditor();
 	const highlightClassName = `ring-2 ring-primary bg-primary/10 ${isRounded ? "rounded-sm" : ""}`;
+	const selectedClassName = `ring-2 ring-primary ${isRounded ? "rounded-sm" : ""}`;
 
 	const handleAddToTimeline = () => {
 		onAddToTimeline?.({ currentTime: editor.playback.getCurrentTime() });
@@ -84,6 +90,7 @@ export function DraggableItem({
 
 		setDragPosition({ x: e.clientX, y: e.clientY });
 		setIsDragging(true);
+		didDragRef.current = true;
 
 		onDragStart?.({ e });
 	};
@@ -93,18 +100,34 @@ export function DraggableItem({
 		clearDragData();
 	};
 
+	const handleClick = () => {
+		if (didDragRef.current) {
+			didDragRef.current = false;
+			return;
+		}
+		onClick?.();
+	};
+
 	return (
 		<>
 			{variant === "card" ? (
+				// biome-ignore lint/a11y/useSemanticElements: container wraps draggable content with nested interactive elements
 				<div
 					ref={dragRef}
 					className={cn("group relative", containerClassName ?? "size-28")}
+					onClick={handleClick}
+					onKeyUp={(event) => {
+						if (event.key === "Enter") handleClick();
+					}}
+					role="button"
+					tabIndex={0}
 				>
 					<div
 						className={cn(
 							"relative flex h-auto w-full cursor-default flex-col gap-1 p-1",
 							className,
 							isHighlighted && highlightClassName,
+							isSelected && selectedClassName,
 						)}
 					>
 						<AspectRatio
@@ -147,6 +170,7 @@ export function DraggableItem({
 					className={cn(
 						"group relative w-full",
 						isHighlighted && highlightClassName,
+						isSelected && selectedClassName,
 					)}
 				>
 					<button
@@ -159,6 +183,7 @@ export function DraggableItem({
 						draggable={isDraggable}
 						onDragStart={isDraggable ? handleDragStart : undefined}
 						onDragEnd={isDraggable ? handleDragEnd : undefined}
+						onClick={handleClick}
 					>
 						<div className="size-6 flex-shrink-0 overflow-hidden rounded-[0.35rem]">
 							{preview}

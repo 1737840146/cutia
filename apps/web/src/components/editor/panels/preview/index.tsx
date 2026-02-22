@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useRef } from "react";
 import useDeepCompareEffect from "use-deep-compare-effect";
+import { X } from "lucide-react";
 import { useEditor } from "@/hooks/use-editor";
 import { useRafLoop } from "@/hooks/use-raf-loop";
 import { useContainerSize } from "@/hooks/use-container-size";
@@ -16,10 +17,13 @@ import { invokeAction } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
 import {
 	FullScreenIcon,
+	MusicNote03Icon,
 	PauseIcon,
 	PlayIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useMediaPreviewStore } from "@/stores/media-preview-store";
+import type { MediaAsset } from "@/types/assets";
 import { cn } from "@/utils/ui";
 
 function usePreviewSize() {
@@ -61,6 +65,19 @@ function RenderTreeController() {
 export function PreviewPanel() {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const { isFullscreen, toggleFullscreen } = useFullscreen({ containerRef });
+	const editor = useEditor();
+	const selectedMediaId = useMediaPreviewStore(
+		(state) => state.selectedMediaId,
+	);
+	const clearSelection = useMediaPreviewStore((state) => state.clearSelection);
+
+	const selectedAsset = useMemo(() => {
+		if (!selectedMediaId) return null;
+		return (
+			editor.media.getAssets().find((asset) => asset.id === selectedMediaId) ??
+			null
+		);
+	}, [selectedMediaId, editor.media]);
 
 	return (
 		<div
@@ -70,16 +87,101 @@ export function PreviewPanel() {
 				isFullscreen && "bg-background",
 			)}
 		>
-			<div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-2 pb-0">
-				<PreviewCanvas />
-				<RenderTreeController />
-			</div>
-			<PreviewToolbar
-				isFullscreen={isFullscreen}
-				onToggleFullscreen={toggleFullscreen}
-			/>
+			{selectedAsset ? (
+				<>
+					<PreviewHeader
+						assetName={selectedAsset.name}
+						onClose={clearSelection}
+					/>
+					<div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-2">
+						<AssetPreviewPlayer asset={selectedAsset} />
+					</div>
+				</>
+			) : (
+				<>
+					<div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-2 pb-0">
+						<PreviewCanvas />
+						<RenderTreeController />
+					</div>
+					<PreviewToolbar
+						isFullscreen={isFullscreen}
+						onToggleFullscreen={toggleFullscreen}
+					/>
+				</>
+			)}
 		</div>
 	);
+}
+
+function PreviewHeader({
+	assetName,
+	onClose,
+}: {
+	assetName: string;
+	onClose: () => void;
+}) {
+	return (
+		<div className="flex h-9 items-center justify-between border-b px-3">
+			<span className="text-muted-foreground truncate text-xs">
+				正在预览: {assetName}
+			</span>
+			<Button
+				variant="ghost"
+				size="icon"
+				type="button"
+				className="size-6"
+				onClick={onClose}
+				title="Close preview"
+			>
+				<X className="size-3.5" />
+			</Button>
+		</div>
+	);
+}
+
+function AssetPreviewPlayer({ asset }: { asset: MediaAsset }) {
+	const url = asset.url ?? "";
+
+	if (asset.type === "video") {
+		return (
+			<div className="flex h-full w-full items-center justify-center">
+				{/* biome-ignore lint/a11y/useMediaCaption: preview playback */}
+				<video
+					key={asset.id}
+					src={url}
+					controls
+					autoPlay
+					className="max-h-full max-w-full rounded"
+				/>
+			</div>
+		);
+	}
+
+	if (asset.type === "image") {
+		return (
+			<div className="flex h-full w-full items-center justify-center">
+				{/* biome-ignore lint: blob URLs don't work with Next.js Image */}
+				<img
+					src={url}
+					alt={asset.name}
+					className="max-h-full max-w-full rounded object-contain"
+				/>
+			</div>
+		);
+	}
+
+	if (asset.type === "audio") {
+		return (
+			<div className="flex h-full w-full flex-col items-center justify-center gap-4">
+				<HugeiconsIcon icon={MusicNote03Icon} className="text-muted-foreground size-16" />
+				<span className="text-muted-foreground text-sm">{asset.name}</span>
+				{/* biome-ignore lint/a11y/useMediaCaption: preview playback */}
+				<audio key={asset.id} src={url} controls autoPlay className="w-64" />
+			</div>
+		);
+	}
+
+	return null;
 }
 
 function PreviewToolbar({

@@ -46,6 +46,7 @@ import {
 	buildVideoElement,
 } from "@/lib/timeline/element-utils";
 import { useAssetsPanelStore } from "@/stores/assets-panel-store";
+import { useMediaPreviewStore } from "@/stores/media-preview-store";
 import type { MediaAsset } from "@/types/assets";
 import type { CreateTimelineElement } from "@/types/timeline";
 import { cn } from "@/utils/ui";
@@ -241,6 +242,23 @@ export function MediaView() {
 	const renderCompactPreview = (item: MediaAsset) =>
 		previewComponents.get(`compact-${item.id}`);
 
+	const selectedMediaId = useMediaPreviewStore(
+		(state) => state.selectedMediaId,
+	);
+
+	const handleSelectMedia = ({ asset }: { asset: MediaAsset }) => {
+		const store = useMediaPreviewStore.getState();
+		if (store.selectedMediaId === asset.id) {
+			store.clearSelection();
+		} else {
+			store.selectMedia({ mediaId: asset.id });
+		}
+	};
+
+	const handleClearSelection = () => {
+		useMediaPreviewStore.getState().clearSelection();
+	};
+
 	return (
 		<>
 			<input {...fileInputProps} />
@@ -394,8 +412,20 @@ export function MediaView() {
 					</div>
 				</div>
 
-			<div className="scrollbar-thin size-full overflow-y-auto">
-				<div className="w-full flex-1 p-2 pt-1">
+			{/* biome-ignore lint: deselect on empty space click */}
+			<div
+				className="scrollbar-thin size-full overflow-y-auto"
+				onClick={(event) => {
+					if (event.target === event.currentTarget) handleClearSelection();
+				}}
+			>
+				{/* biome-ignore lint: deselect on empty space click */}
+				<div
+					className="w-full flex-1 p-2 pt-1"
+					onClick={(event) => {
+						if (event.target === event.currentTarget) handleClearSelection();
+					}}
+				>
 						{isDragOver || filteredMediaItems.length === 0 ? (
 							<MediaDragOverlay
 								isVisible={true}
@@ -409,6 +439,8 @@ export function MediaView() {
 								renderPreview={renderPreview}
 								onRemove={handleRemove}
 								onAddToTimeline={addElementAtTime}
+								onSelect={handleSelectMedia}
+								selectedMediaId={selectedMediaId}
 								highlightedId={highlightedId}
 								registerElement={registerElement}
 							/>
@@ -418,6 +450,8 @@ export function MediaView() {
 								renderPreview={renderCompactPreview}
 								onRemove={handleRemove}
 								onAddToTimeline={addElementAtTime}
+								onSelect={handleSelectMedia}
+								selectedMediaId={selectedMediaId}
 								highlightedId={highlightedId}
 								registerElement={registerElement}
 							/>
@@ -501,6 +535,8 @@ function GridView({
 	renderPreview,
 	onRemove,
 	onAddToTimeline,
+	onSelect,
+	selectedMediaId,
 	highlightedId,
 	registerElement,
 }: {
@@ -514,6 +550,8 @@ function GridView({
 		asset: MediaAsset;
 		startTime: number;
 	}) => boolean;
+	onSelect: ({ asset }: { asset: MediaAsset }) => void;
+	selectedMediaId: string | null;
 	highlightedId: string | null;
 	registerElement: (id: string, element: HTMLElement | null) => void;
 }) {
@@ -540,10 +578,12 @@ function GridView({
 							onAddToTimeline={({ currentTime }) =>
 								onAddToTimeline({ asset: item, startTime: currentTime })
 							}
+							onClick={() => onSelect({ asset: item })}
 							isRounded={false}
 							variant="card"
 							containerClassName="w-full"
 							isHighlighted={highlightedId === item.id}
+							isSelected={selectedMediaId === item.id}
 						/>
 					</MediaItemWithContextMenu>
 				</div>
@@ -557,6 +597,8 @@ function ListView({
 	renderPreview,
 	onRemove,
 	onAddToTimeline,
+	onSelect,
+	selectedMediaId,
 	highlightedId,
 	registerElement,
 }: {
@@ -570,6 +612,8 @@ function ListView({
 		asset: MediaAsset;
 		startTime: number;
 	}) => boolean;
+	onSelect: ({ asset }: { asset: MediaAsset }) => void;
+	selectedMediaId: string | null;
 	highlightedId: string | null;
 	registerElement: (id: string, element: HTMLElement | null) => void;
 }) {
@@ -591,8 +635,10 @@ function ListView({
 							onAddToTimeline={({ currentTime }) =>
 								onAddToTimeline({ asset: item, startTime: currentTime })
 							}
+							onClick={() => onSelect({ asset: item })}
 							variant="compact"
 							isHighlighted={highlightedId === item.id}
+							isSelected={selectedMediaId === item.id}
 						/>
 					</MediaItemWithContextMenu>
 				</div>

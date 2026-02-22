@@ -2,6 +2,7 @@ import { useCallback, useRef } from "react";
 import type { MutableRefObject, RefObject } from "react";
 import { TIMELINE_CONSTANTS } from "@/constants/timeline-constants";
 import { getSnappedSeekTime } from "@/lib/time";
+import { useMediaPreviewStore } from "@/stores/media-preview-store";
 import { useEditor } from "../use-editor";
 
 interface UseTimelineSeekProps {
@@ -168,6 +169,7 @@ export function useTimelineSeek({
 			resetMouseTracking({ mouseTrackingRef });
 
 			if (shouldProcess) {
+				useMediaPreviewStore.getState().clearSelection();
 				clearSelectedElements();
 				handleTimelineSeek({ event, source: "tracks" });
 			}
@@ -181,6 +183,7 @@ export function useTimelineSeek({
 			resetMouseTracking({ mouseTrackingRef });
 
 			if (shouldProcess) {
+				useMediaPreviewStore.getState().clearSelection();
 				clearSelectedElements();
 				handleTimelineSeek({ event, source: "ruler" });
 			}
