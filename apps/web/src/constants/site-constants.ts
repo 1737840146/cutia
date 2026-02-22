@@ -22,29 +22,7 @@ export const EXTERNAL_TOOLS: ExternalTool[] = [];
 export const DEFAULT_LOGO_URL = "/logos/cutia/svg/logo.svg";
 
 export const SOCIAL_LINKS = {
-	x: "https://x.com/cutiaapp",
+	x: "https://x.com/moonrailgun",
 	github: "https://github.com/msgbyte/cutia",
-	discord: "https://discord.com/invite/Mu3acKZvCp",
+	discord: "",
 };
-
-export type Sponsor = {
-	name: string;
-	url: string;
-	logo: string;
-	description: string;
-};
-
-export const SPONSORS: Sponsor[] = [
-	{
-		name: "Fal.ai",
-		url: "https://fal.ai?utm_source=cutia",
-		logo: "/logos/others/fal.svg",
-		description: "Generative image, video, and audio models all in one place.",
-	},
-	{
-		name: "Vercel",
-		url: "https://vercel.com?utm_source=cutia",
-		logo: "/logos/others/vercel.svg",
-		description: "Platform where we deploy and host Cutia.",
-	},
-];

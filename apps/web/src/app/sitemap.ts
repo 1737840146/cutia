@@ -10,12 +10,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
 			priority: 1,
 		},
 		{
-			url: `${SITE_URL}/contributors`,
-			lastModified: new Date(),
-			changeFrequency: "daily",
-			priority: 0.5,
-		},
-		{
 			url: `${SITE_URL}/roadmap`,
 			lastModified: new Date(),
 			changeFrequency: "weekly",
