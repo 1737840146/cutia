@@ -25,6 +25,7 @@ import { transcriptionService } from "@/services/transcription/service";
 import { decodeAudioToFloat32 } from "@/lib/media/audio";
 import { buildCaptionChunks } from "@/lib/transcription/caption";
 import { Spinner } from "@/components/ui/spinner";
+import { Progress } from "@/components/ui/progress";
 import { Label } from "@/components/ui/label";
 
 export function Captions() {
@@ -36,19 +37,26 @@ export function Captions() {
 	);
 	const [isProcessing, setIsProcessing] = useState(false);
 	const [processingStep, setProcessingStep] = useState("");
+	const [progressValue, setProgressValue] = useState(0);
 	const [error, setError] = useState<string | null>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const editor = useEditor();
 
 	const handleProgress = (progress: TranscriptionProgress) => {
 		if (progress.status === "loading-model") {
+			setProgressValue(progress.progress);
 			setProcessingStep(
 				t("Loading model {{progress}}%", {
 					progress: Math.round(progress.progress),
 				}),
 			);
 		} else if (progress.status === "transcribing") {
-			setProcessingStep(t("Transcribing..."));
+			setProgressValue(progress.progress);
+			setProcessingStep(
+				t("Transcribing {{progress}}%", {
+					progress: Math.round(progress.progress),
+				}),
+			);
 		}
 	};
 
@@ -56,6 +64,7 @@ export function Captions() {
 		try {
 			setIsProcessing(true);
 			setError(null);
+			setProgressValue(0);
 			setProcessingStep(t("Extracting audio..."));
 
 			const audioBlob = await extractTimelineAudio({
@@ -65,10 +74,13 @@ export function Captions() {
 			});
 
 			setProcessingStep(t("Preparing audio..."));
-			const { samples } = await decodeAudioToFloat32({ audioBlob });
+			const { samples, sampleRate } = await decodeAudioToFloat32({
+				audioBlob,
+			});
 
 			const result = await transcriptionService.transcribe({
 				audioData: samples,
+				sampleRate,
 				language: selectedLanguage === "auto" ? undefined : selectedLanguage,
 				onProgress: handleProgress,
 			});
@@ -111,6 +123,7 @@ export function Captions() {
 		} finally {
 			setIsProcessing(false);
 			setProcessingStep("");
+			setProgressValue(0);
 		}
 	};
 
@@ -215,13 +228,23 @@ export function Captions() {
 					</div>
 				)}
 
+				{isProcessing && (
+					<div className="flex flex-col gap-1.5">
+						<Progress value={progressValue} className="w-full" />
+						<p className="text-muted-foreground text-center text-xs">
+							{processingStep}
+						</p>
+					</div>
+				)}
+
 				<Button
 					className="w-full"
+					type="button"
 					onClick={handleGenerateTranscript}
 					disabled={isProcessing}
 				>
 					{isProcessing && <Spinner className="mr-1" />}
-					{isProcessing ? processingStep : t("Generate transcript")}
+					{isProcessing ? t("Processing...") : t("Generate transcript")}
 				</Button>
 			</div>
 		</BaseView>
