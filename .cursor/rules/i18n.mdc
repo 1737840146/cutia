@@ -62,5 +62,6 @@ setLanguage("zh");
 
 - Never hardcode user-facing copy in components or stores.
 - Use `t("…")` in React components; use `i18next.t("…")` outside React.
+- `t()` / `i18next.t()` must receive a string literal directly (e.g. `t("Popular")`), not a variable/expression (e.g. `t(label)` or `t(labels[key])`), so extraction remains reliable.
 - Keep translation keys identical to the default (en) string for extractor compatibility.
 - After adding new `t()` / `i18next.t()` calls, run `translation:extract` and update zh translations.

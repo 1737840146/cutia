@@ -7,13 +7,36 @@ import { DEFAULT_TEXT_ELEMENT } from "@/constants/text-constants";
 import { buildTextElement } from "@/lib/timeline/element-utils";
 import {
 	TEXT_STYLE_PRESETS,
-	TEXT_STYLE_CATEGORIES,
+	TEXT_STYLE_CATEGORY_KEYS,
 	createTextFromPreset,
 	type TextStyleCategory,
 } from "@/constants/text-style-presets";
 import { cn } from "@/utils/ui";
 
-const CATEGORY_KEYS = Object.keys(TEXT_STYLE_CATEGORIES) as TextStyleCategory[];
+function getCategoryLabel({
+	category,
+	t,
+}: {
+	category: TextStyleCategory;
+	t: (key: string) => string;
+}): string {
+	switch (category) {
+		case "popular":
+			return t("Popular");
+		case "subtitle":
+			return t("Subtitles");
+		case "title":
+			return t("Titles");
+		case "social":
+			return t("Social");
+		case "creative":
+			return t("Creative");
+		case "minimal":
+			return t("Minimal");
+		case "emphasis":
+			return t("Emphasis");
+	}
+}
 
 export function TextView() {
 	const { t } = useTranslation();
@@ -93,7 +116,7 @@ export function TextView() {
 
 				{/* Category tabs */}
 				<div className="flex flex-wrap gap-1 px-1">
-					{CATEGORY_KEYS.map((category) => (
+					{TEXT_STYLE_CATEGORY_KEYS.map((category) => (
 						<button
 							key={category}
 							type="button"
@@ -105,7 +128,7 @@ export function TextView() {
 							)}
 							onClick={() => setActiveCategory(category)}
 						>
-							{t(TEXT_STYLE_CATEGORIES[category])}
+							{getCategoryLabel({ category, t })}
 						</button>
 					))}
 				</div>

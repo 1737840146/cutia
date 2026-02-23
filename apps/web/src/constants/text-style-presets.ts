@@ -19,15 +19,15 @@ export type TextStylePreset = Omit<
 	category: TextStyleCategory;
 };
 
-export const TEXT_STYLE_CATEGORIES: Record<TextStyleCategory, string> = {
-	popular: "Popular",
-	subtitle: "Subtitles",
-	title: "Titles",
-	social: "Social",
-	creative: "Creative",
-	minimal: "Minimal",
-	emphasis: "Emphasis",
-};
+export const TEXT_STYLE_CATEGORY_KEYS: ReadonlyArray<TextStyleCategory> = [
+	"popular",
+	"subtitle",
+	"title",
+	"social",
+	"creative",
+	"minimal",
+	"emphasis",
+];
 
 function buildPreset({
 	presetId,
