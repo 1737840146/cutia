@@ -8,6 +8,8 @@ import type {
 	StorageConfig,
 	SerializedProject,
 	SerializedScene,
+	StorageStats,
+	ProjectStorageStats,
 } from "./types";
 import type { SavedSoundsData, SavedSound, SoundEffect } from "@/types/sounds";
 import {
@@ -364,6 +366,59 @@ class StorageService {
 		return {
 			mediaItems: mediaIds.length,
 		};
+	}
+
+	async getDetailedStorageStats(): Promise<StorageStats> {
+		const estimate = await navigator.storage.estimate();
+		const quota = estimate.quota ?? 0;
+		const usage = estimate.usage ?? 0;
+
+		const serializedProjects = await this.projectsAdapter.getAll();
+		const projects: ProjectStorageStats[] = [];
+
+		for (const serializedProject of serializedProjects) {
+			const projectId = serializedProject.metadata.id;
+			const { mediaMetadataAdapter } = this.getProjectMediaAdapters({
+				projectId,
+			});
+
+			try {
+				const allMedia = await mediaMetadataAdapter.getAll();
+				const byType: ProjectStorageStats["byType"] = {};
+				let mediaSize = 0;
+
+				for (const media of allMedia) {
+					mediaSize += media.size ?? 0;
+					const existing = byType[media.type];
+					if (existing) {
+						existing.size += media.size ?? 0;
+						existing.count += 1;
+					} else {
+						byType[media.type] = { size: media.size ?? 0, count: 1 };
+					}
+				}
+
+				projects.push({
+					projectId,
+					projectName: serializedProject.metadata.name,
+					mediaSize,
+					mediaCount: allMedia.length,
+					byType,
+				});
+			} catch {
+				projects.push({
+					projectId,
+					projectName: serializedProject.metadata.name,
+					mediaSize: 0,
+					mediaCount: 0,
+					byType: {},
+				});
+			}
+		}
+
+		projects.sort((a, b) => b.mediaSize - a.mediaSize);
+
+		return { quota, usage, projects };
 	}
 
 	async loadSavedSounds(): Promise<SavedSoundsData> {

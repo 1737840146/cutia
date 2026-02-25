@@ -57,6 +57,7 @@ import { DeleteProjectDialog } from "@/components/editor/dialogs/delete-project-
 import { ProjectInfoDialog } from "@/components/editor/dialogs/project-info-dialog";
 import { RenameProjectDialog } from "@/components/editor/dialogs/rename-project-dialog";
 import { cn } from "@/utils/ui";
+import { StorageIndicator } from "./storage-indicator";
 
 const formatProjectDuration = ({
 	duration,
@@ -174,6 +175,7 @@ function ProjectsHeader() {
 				</div>
 
 				<div className="flex items-center gap-3 md:gap-4">
+					<StorageIndicator />
 					<SearchBar className="hidden md:block" />
 					<NewProjectButton />
 				</div>

@@ -54,6 +54,20 @@ export interface StorageConfig {
 	version: number;
 }
 
+export interface ProjectStorageStats {
+	projectId: string;
+	projectName: string;
+	mediaSize: number;
+	mediaCount: number;
+	byType: Partial<Record<MediaType, { size: number; count: number }>>;
+}
+
+export interface StorageStats {
+	quota: number;
+	usage: number;
+	projects: ProjectStorageStats[];
+}
+
 // TypeScript type augmentation to add async iterator methods to FileSystemDirectoryHandle
 // These methods are part of the File System Access API spec but may not be in all type definitions
 declare global {
