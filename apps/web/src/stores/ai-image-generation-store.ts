@@ -12,6 +12,12 @@ import {
 	useAIGenerationHistoryStore,
 } from "./ai-generation-history-store";
 import { generateUUID } from "@/utils/id";
+import {
+	useCharacterStore,
+	resolveCharacterReferenceUrl,
+	getCharacterImageBlob,
+} from "./character-store";
+import type { CharacterGeneration } from "@/types/character";
 
 export type AssetStatus = "pending" | "adding" | "added" | "failed";
 
@@ -27,12 +33,14 @@ interface AIImageGenerationState {
 	aspectRatio: string;
 	referenceImage: File | null;
 	referenceImagePreview: string | null;
+	selectedCharacterId: string | null;
 	isGenerating: boolean;
 	generatedImages: GeneratedImage[];
 
 	setPrompt: (prompt: string) => void;
 	setAspectRatio: (aspectRatio: string) => void;
 	setReferenceImage: (file: File | null) => void;
+	setSelectedCharacterId: (id: string | null) => void;
 	generate: () => Promise<void>;
 	retryAddToAssets: (imageId: string) => void;
 	clearImages: () => void;
@@ -212,11 +220,45 @@ export const useAIImageGenerationStore = create<AIImageGenerationState>()(
 		aspectRatio: "auto",
 		referenceImage: null,
 		referenceImagePreview: null,
+		selectedCharacterId: null,
 		isGenerating: false,
 		generatedImages: [],
 
 		setPrompt: (prompt) => set({ prompt }),
 		setAspectRatio: (aspectRatio) => set({ aspectRatio }),
+		setSelectedCharacterId: (id) => {
+			set({ selectedCharacterId: id });
+			if (id) {
+				const character = useCharacterStore
+					.getState()
+					.getCharacterById({ id });
+				if (character && character.images.length > 0) {
+					const firstImage = character.images[0];
+					void getCharacterImageBlob({ id: firstImage.blobKey }).then(
+						(blob) => {
+							if (blob) {
+								const prev = get().referenceImagePreview;
+								if (prev) URL.revokeObjectURL(prev);
+								const file = new File(
+									[blob],
+									`character-${id}.png`,
+									{ type: blob.type || "image/png" },
+								);
+								set({
+									referenceImage: file,
+									referenceImagePreview:
+										URL.createObjectURL(blob),
+								});
+							}
+						},
+					);
+				}
+			} else {
+				const prev = get().referenceImagePreview;
+				if (prev) URL.revokeObjectURL(prev);
+				set({ referenceImage: null, referenceImagePreview: null });
+			}
+		},
 		setReferenceImage: (file) => {
 			const prev = get().referenceImagePreview;
 			if (prev) URL.revokeObjectURL(prev);
@@ -245,7 +287,7 @@ export const useAIImageGenerationStore = create<AIImageGenerationState>()(
 				return;
 			}
 
-			const { prompt, aspectRatio, referenceImage } = get();
+			const { prompt, aspectRatio, referenceImage, selectedCharacterId } = get();
 			const trimmedPrompt = prompt.trim();
 			if (!trimmedPrompt) {
 				toast.error(i18next.t("Please enter a prompt"));
@@ -256,7 +298,11 @@ export const useAIImageGenerationStore = create<AIImageGenerationState>()(
 
 			try {
 				let referenceImageUrl: string | undefined;
-				if (referenceImage) {
+				if (selectedCharacterId) {
+					referenceImageUrl = await resolveCharacterReferenceUrl({
+						characterId: selectedCharacterId,
+					});
+				} else if (referenceImage) {
 					referenceImageUrl = await uploadReferenceImage({ file: referenceImage });
 				}
 
@@ -298,6 +344,23 @@ export const useAIImageGenerationStore = create<AIImageGenerationState>()(
 					imageId: image.id,
 					imageUrl: image.url,
 				});
+
+				if (selectedCharacterId) {
+					const generation: CharacterGeneration = {
+						id: generateUUID(),
+						type: "image",
+						prompt: trimmedPrompt,
+						url: image.url,
+						provider: provider.name,
+						createdAt: new Date().toISOString(),
+					};
+					useCharacterStore
+						.getState()
+						.addGeneration({
+							characterId: selectedCharacterId,
+							generation,
+						});
+				}
 			}
 			} catch (error) {
 				const message =

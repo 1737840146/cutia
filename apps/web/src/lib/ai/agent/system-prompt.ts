@@ -1,4 +1,5 @@
 import { EditorCore } from "@/core";
+import { useCharacterStore } from "@/stores/character-store";
 
 export function buildSystemPrompt(): string {
 	const editor = EditorCore.getInstance();
@@ -6,6 +7,7 @@ export function buildSystemPrompt(): string {
 	const tracks = editor.timeline.getTracks();
 	const assets = editor.media.getAssets();
 	const duration = editor.timeline.getTotalDuration();
+	const characters = useCharacterStore.getState().characters;
 
 	const projectContext = project
 		? `
@@ -31,6 +33,19 @@ ${assets
 	.join("\n")}
 `
 			: "\n## No media assets in the project yet.\n";
+
+	const characterContext =
+		characters.length > 0
+			? `
+## Available Characters
+${characters
+	.map(
+		(c) =>
+			`- [${c.id}] "${c.name}" (${c.images.length} reference images, ${c.generations.length} generations)${c.description ? `: ${c.description}` : ""}`,
+	)
+	.join("\n")}
+`
+			: "\n## No characters in the library.\n";
 
 	const timelineContext =
 		tracks.length > 0
@@ -81,5 +96,11 @@ You can:
 - When generating a video, check if there is a relevant image in the media library (especially recently generated AI images) to use as referenceMediaId. This produces image-to-video with consistent visuals.
 - All AI-generated assets are added to the media library automatically. Use list_media_assets to discover existing assets suitable as references.
 - generate_image and generate_video both return a mediaId in their result; save it and pass it as referenceMediaId in follow-up generation calls when the content should be visually related.
-${projectContext}${assetsContext}${timelineContext}`;
+
+## Character Library
+- The character library stores reusable AI character cards with reference images (turnaround sheets).
+- Use list_characters to see available characters. Use characterId or characterName in generate_image / generate_video to automatically use a character's reference image.
+- When a character is used as reference, the generated content is automatically associated with that character.
+- Prefer using characterId/characterName over referenceMediaId when the user mentions a specific character by name.
+${characterContext}${projectContext}${assetsContext}${timelineContext}`;
 }

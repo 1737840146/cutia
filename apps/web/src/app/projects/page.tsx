@@ -43,6 +43,7 @@ import {
 	Edit03Icon,
 	ArrowDown02Icon,
 	InformationCircleIcon,
+	UserIcon,
 } from "@hugeicons/core-free-icons";
 import { OcVideoIcon } from "@cutia/ui/icons";
 import { Label } from "@/components/ui/label";
@@ -177,6 +178,12 @@ function ProjectsHeader() {
 				<div className="flex items-center gap-3 md:gap-4">
 					<StorageIndicator />
 					<SearchBar className="hidden md:block" />
+					<Link href="/characters">
+						<Button variant="outline" type="button" className="gap-1.5">
+							<HugeiconsIcon icon={UserIcon} className="size-4" />
+							<span className="hidden sm:inline">{t("Characters")}</span>
+						</Button>
+					</Link>
 					<NewProjectButton />
 				</div>
 			</div>

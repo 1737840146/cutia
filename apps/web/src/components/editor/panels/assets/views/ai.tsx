@@ -41,6 +41,7 @@ import {
 	Video01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { CharacterPicker } from "@/components/characters/character-picker";
 
 const ASPECT_RATIOS = [
 	{ value: "auto", label: "Auto" },
@@ -169,11 +170,13 @@ function AIImageView() {
 		prompt,
 		aspectRatio,
 		referenceImagePreview,
+		selectedCharacterId,
 		isGenerating,
 		generatedImages,
 		setPrompt,
 		setAspectRatio,
 		setReferenceImage,
+		setSelectedCharacterId,
 		generate,
 	} = useAIImageGenerationStore();
 
@@ -231,12 +234,20 @@ function AIImageView() {
 					}}
 				/>
 
-				<ReferenceImagePicker
-					previewUrl={referenceImagePreview}
+				<CharacterPicker
+					selectedCharacterId={selectedCharacterId}
+					onSelect={(id) => setSelectedCharacterId(id)}
 					disabled={isGenerating}
-					onSelect={(file) => setReferenceImage(file)}
-					onClear={() => setReferenceImage(null)}
 				/>
+
+				{!selectedCharacterId && (
+					<ReferenceImagePicker
+						previewUrl={referenceImagePreview}
+						disabled={isGenerating}
+						onSelect={(file) => setReferenceImage(file)}
+						onClear={() => setReferenceImage(null)}
+					/>
+				)}
 
 				<div className="flex items-center gap-2">
 					<Select value={aspectRatio} onValueChange={setAspectRatio}>
@@ -456,6 +467,7 @@ function AIVideoView() {
 		aspectRatio: videoAspectRatio,
 		resolution,
 		referenceImagePreview,
+		selectedCharacterId,
 		isGenerating,
 		generatedVideos,
 		setPrompt,
@@ -463,6 +475,7 @@ function AIVideoView() {
 		setAspectRatio: setVideoAspectRatio,
 		setResolution,
 		setReferenceImage,
+		setSelectedCharacterId,
 		generate,
 	} = useAIVideoGenerationStore();
 
@@ -520,12 +533,20 @@ function AIVideoView() {
 					}}
 				/>
 
-				<ReferenceImagePicker
-					previewUrl={referenceImagePreview}
+				<CharacterPicker
+					selectedCharacterId={selectedCharacterId}
+					onSelect={(id) => setSelectedCharacterId(id)}
 					disabled={isGenerating}
-					onSelect={(file) => setReferenceImage(file)}
-					onClear={() => setReferenceImage(null)}
 				/>
+
+				{!selectedCharacterId && (
+					<ReferenceImagePicker
+						previewUrl={referenceImagePreview}
+						disabled={isGenerating}
+						onSelect={(file) => setReferenceImage(file)}
+						onClear={() => setReferenceImage(null)}
+					/>
+				)}
 
 				<div className="flex items-center gap-2">
 					<Select

@@ -1,6 +1,7 @@
 import type { OpenAIToolSchema } from "../types";
 import { aiGenerationTools } from "./ai-generation-tools";
 import { captionTools } from "./caption-tools";
+import { characterTools } from "./character-tools";
 import { mediaTools } from "./media-tools";
 import { projectTools } from "./project-tools";
 import { timelineTools } from "./timeline-tools";
@@ -12,6 +13,7 @@ const ALL_TOOLS: AgentTool[] = [
 	...timelineTools,
 	...captionTools,
 	...aiGenerationTools,
+	...characterTools,
 ];
 
 const toolMap = new Map<string, AgentTool>(

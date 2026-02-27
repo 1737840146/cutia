@@ -11,6 +11,12 @@ import { fetchWithProxyFallback } from "@/lib/media/url-import";
 import { useAISettingsStore } from "./ai-settings-store";
 import { useAIGenerationHistoryStore } from "./ai-generation-history-store";
 import { generateUUID } from "@/utils/id";
+import {
+	useCharacterStore,
+	resolveCharacterReferenceUrl,
+	getCharacterImageBlob,
+} from "./character-store";
+import type { CharacterGeneration } from "@/types/character";
 
 export type VideoAssetStatus = "pending" | "adding" | "added" | "failed";
 
@@ -31,6 +37,7 @@ interface AIVideoGenerationState {
 	resolution: string;
 	referenceImage: File | null;
 	referenceImagePreview: string | null;
+	selectedCharacterId: string | null;
 	isGenerating: boolean;
 	generatedVideos: GeneratedVideo[];
 
@@ -39,6 +46,7 @@ interface AIVideoGenerationState {
 	setAspectRatio: (aspectRatio: string) => void;
 	setResolution: (resolution: string) => void;
 	setReferenceImage: (file: File | null) => void;
+	setSelectedCharacterId: (id: string | null) => void;
 	generate: () => Promise<void>;
 	retryAddToAssets: (videoId: string) => void;
 	clearVideos: () => void;
@@ -105,6 +113,7 @@ export const useAIVideoGenerationStore = create<AIVideoGenerationState>()(
 		resolution: "720p",
 		referenceImage: null,
 		referenceImagePreview: null,
+		selectedCharacterId: null,
 		isGenerating: false,
 		generatedVideos: [],
 
@@ -112,6 +121,39 @@ export const useAIVideoGenerationStore = create<AIVideoGenerationState>()(
 		setDuration: (duration) => set({ duration }),
 		setAspectRatio: (aspectRatio) => set({ aspectRatio }),
 		setResolution: (resolution) => set({ resolution }),
+		setSelectedCharacterId: (id) => {
+			set({ selectedCharacterId: id });
+			if (id) {
+				const character = useCharacterStore
+					.getState()
+					.getCharacterById({ id });
+				if (character && character.images.length > 0) {
+					const firstImage = character.images[0];
+					void getCharacterImageBlob({ id: firstImage.blobKey }).then(
+						(blob) => {
+							if (blob) {
+								const prev = get().referenceImagePreview;
+								if (prev) URL.revokeObjectURL(prev);
+								const file = new File(
+									[blob],
+									`character-${id}.png`,
+									{ type: blob.type || "image/png" },
+								);
+								set({
+									referenceImage: file,
+									referenceImagePreview:
+										URL.createObjectURL(blob),
+								});
+							}
+						},
+					);
+				}
+			} else {
+				const prev = get().referenceImagePreview;
+				if (prev) URL.revokeObjectURL(prev);
+				set({ referenceImage: null, referenceImagePreview: null });
+			}
+		},
 		setReferenceImage: (file) => {
 			const prev = get().referenceImagePreview;
 			if (prev) URL.revokeObjectURL(prev);
@@ -144,7 +186,7 @@ export const useAIVideoGenerationStore = create<AIVideoGenerationState>()(
 				return;
 			}
 
-			const { prompt, duration, aspectRatio, resolution, referenceImage } = get();
+			const { prompt, duration, aspectRatio, resolution, referenceImage, selectedCharacterId } = get();
 			const trimmedPrompt = prompt.trim();
 			if (!trimmedPrompt) {
 				toast.error(i18next.t("Please enter a prompt"));
@@ -155,7 +197,11 @@ export const useAIVideoGenerationStore = create<AIVideoGenerationState>()(
 
 			try {
 				let referenceImageUrl: string | undefined;
-				if (referenceImage) {
+				if (selectedCharacterId) {
+					referenceImageUrl = await resolveCharacterReferenceUrl({
+						characterId: selectedCharacterId,
+					});
+				} else if (referenceImage) {
 					referenceImageUrl = await uploadReferenceImage({ file: referenceImage });
 				}
 
@@ -191,6 +237,7 @@ export const useAIVideoGenerationStore = create<AIVideoGenerationState>()(
 					videoId,
 					taskId: submitResult.taskId,
 					apiKey: videoApiKey,
+					characterId: selectedCharacterId,
 				});
 			} catch (error) {
 				const message =
@@ -223,11 +270,13 @@ async function pollAndUpdate({
 	videoId,
 	taskId,
 	apiKey,
+	characterId,
 }: {
 	provider: ReturnType<typeof getVideoProvider>;
 	videoId: string;
 	taskId: string;
 	apiKey: string;
+	characterId?: string | null;
 }): Promise<void> {
 	if (!provider) return;
 
@@ -275,6 +324,20 @@ async function pollAndUpdate({
 			videoId,
 			videoUrl: finalResult.videoUrl,
 		});
+
+		if (characterId) {
+			const generation: CharacterGeneration = {
+				id: generateUUID(),
+				type: "video",
+				prompt: currentVideo?.prompt ?? "",
+				url: finalResult.videoUrl,
+				provider: provider?.name ?? "",
+				createdAt: new Date().toISOString(),
+			};
+			useCharacterStore
+				.getState()
+				.addGeneration({ characterId, generation });
+		}
 		} else if (finalResult.status === "failed") {
 			updateVideo({
 				videoId,

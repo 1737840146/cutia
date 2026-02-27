@@ -11,6 +11,11 @@ import {
 	useAIGenerationHistoryStore,
 } from "@/stores/ai-generation-history-store";
 import { useAISettingsStore } from "@/stores/ai-settings-store";
+import {
+	useCharacterStore,
+	resolveCharacterReferenceUrl,
+} from "@/stores/character-store";
+import type { CharacterGeneration } from "@/types/character";
 import { generateUUID } from "@/utils/id";
 import type { AgentTool } from "./types";
 
@@ -126,6 +131,28 @@ async function resolveReferenceImageUrl({
 	return uploadMediaAssetAsReference({ mediaId });
 }
 
+function resolveCharacterId({
+	characterId,
+	characterName,
+}: {
+	characterId?: string;
+	characterName?: string;
+}): string | undefined {
+	if (characterId) {
+		const character = useCharacterStore
+			.getState()
+			.getCharacterById({ id: characterId });
+		if (character) return character.id;
+	}
+	if (characterName) {
+		const character = useCharacterStore
+			.getState()
+			.getCharacterByName({ name: characterName });
+		if (character) return character.id;
+	}
+	return undefined;
+}
+
 export const generateImageTool: AgentTool = {
 	name: "generate_image",
 	description:
@@ -148,6 +175,16 @@ export const generateImageTool: AgentTool = {
 				description:
 					"Optional. The media asset ID of an image to use as a reference/style guide. Can be a previously generated image's mediaId or any image asset in the project. Use list_media_assets to discover available IDs.",
 			},
+			characterId: {
+				type: "string",
+				description:
+					"Optional. The ID of a character from the character library to use as a visual reference. The character's reference image will be used automatically. Use list_characters to discover available characters.",
+			},
+			characterName: {
+				type: "string",
+				description:
+					"Optional. The name of a character from the character library. Alternative to characterId for convenience.",
+			},
 		},
 		required: ["prompt"],
 	},
@@ -166,11 +203,22 @@ export const generateImageTool: AgentTool = {
 		const prompt = args.prompt as string;
 		const aspectRatio = args.aspectRatio as string | undefined;
 		const referenceMediaId = args.referenceMediaId as string | undefined;
+		const resolvedCharacterId = resolveCharacterId({
+			characterId: args.characterId as string | undefined,
+			characterName: args.characterName as string | undefined,
+		});
 
 		try {
-			const referenceImageUrl = await resolveReferenceImageUrl({
-				mediaId: referenceMediaId,
-			});
+			let referenceImageUrl: string | undefined;
+			if (resolvedCharacterId) {
+				referenceImageUrl = await resolveCharacterReferenceUrl({
+					characterId: resolvedCharacterId,
+				});
+			} else {
+				referenceImageUrl = await resolveReferenceImageUrl({
+					mediaId: referenceMediaId,
+				});
+			}
 
 			const results = await provider.generateImage({
 				request: {
@@ -207,6 +255,24 @@ export const generateImageTool: AgentTool = {
 					prompt,
 					providerName: provider.name,
 				});
+
+				if (resolvedCharacterId) {
+					const generation: CharacterGeneration = {
+						id: generateUUID(),
+						type: "image",
+						prompt,
+						url: result.url,
+						provider: provider.name,
+						mediaId: added.mediaId,
+						createdAt: new Date().toISOString(),
+					};
+					useCharacterStore
+						.getState()
+						.addGeneration({
+							characterId: resolvedCharacterId,
+							generation,
+						});
+				}
 			}
 
 			return {
@@ -220,6 +286,7 @@ export const generateImageTool: AgentTool = {
 						name: a.name,
 					})),
 					provider: provider.name,
+					characterId: resolvedCharacterId,
 				},
 			};
 		} catch (error) {
@@ -265,6 +332,16 @@ export const generateVideoTool: AgentTool = {
 				description:
 					"The media asset ID of an image to use as the first frame / visual reference for video generation (image-to-video). Strongly recommended for visual consistency — use a mediaId from a previous generate_image result or any image in the media library.",
 			},
+			characterId: {
+				type: "string",
+				description:
+					"Optional. The ID of a character from the character library to use as a visual reference. The character's reference image will be used automatically. Use list_characters to discover available characters.",
+			},
+			characterName: {
+				type: "string",
+				description:
+					"Optional. The name of a character from the character library. Alternative to characterId for convenience.",
+			},
 		},
 		required: ["prompt"],
 	},
@@ -285,11 +362,22 @@ export const generateVideoTool: AgentTool = {
 		const aspectRatio = (args.aspectRatio as string) ?? "16:9";
 		const resolution = (args.resolution as string) ?? "720p";
 		const referenceMediaId = args.referenceMediaId as string | undefined;
+		const resolvedCharacterId = resolveCharacterId({
+			characterId: args.characterId as string | undefined,
+			characterName: args.characterName as string | undefined,
+		});
 
 		try {
-			const referenceImageUrl = await resolveReferenceImageUrl({
-				mediaId: referenceMediaId,
-			});
+			let referenceImageUrl: string | undefined;
+			if (resolvedCharacterId) {
+				referenceImageUrl = await resolveCharacterReferenceUrl({
+					characterId: resolvedCharacterId,
+				});
+			} else {
+				referenceImageUrl = await resolveReferenceImageUrl({
+					mediaId: referenceMediaId,
+				});
+			}
 
 			const submitResult = await provider.submitVideoTask({
 				request: { prompt, duration, aspectRatio, resolution, referenceImageUrl },
@@ -333,6 +421,24 @@ export const generateVideoTool: AgentTool = {
 				provider: provider.name,
 			});
 
+			if (resolvedCharacterId) {
+				const generation: CharacterGeneration = {
+					id: generateUUID(),
+					type: "video",
+					prompt,
+					url: finalResult.videoUrl,
+					provider: provider.name,
+					mediaId: added.mediaId,
+					createdAt: new Date().toISOString(),
+				};
+				useCharacterStore
+					.getState()
+					.addGeneration({
+						characterId: resolvedCharacterId,
+						generation,
+					});
+			}
+
 			return {
 				success: true,
 				message: `Video generated and added to media library as '${added.name}'`,
@@ -342,6 +448,7 @@ export const generateVideoTool: AgentTool = {
 					previewUrls: [added.previewUrl],
 					name: added.name,
 					provider: provider.name,
+					characterId: resolvedCharacterId,
 				},
 			};
 		} catch (error) {
