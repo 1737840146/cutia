@@ -1,4 +1,5 @@
 import { ThemeProvider } from "next-themes";
+import Script from "next/script";
 
 import "./globals.css";
 import { Toaster } from "../components/ui/sonner";
@@ -28,6 +29,10 @@ export default function RootLayout({
 		<html lang="en" suppressHydrationWarning>
 			<head>
 				<BotIdClient protect={protectedRoutes} />
+				<Script
+					src="https://app.tianji.dev/tracker.js"
+					data-website-id="cmm637ekbb51pbiglgy2s7n6k"
+				/>
 			</head>
 			<body className={`${siteFont.className} font-sans antialiased`}>
 				<I18nProvider>
