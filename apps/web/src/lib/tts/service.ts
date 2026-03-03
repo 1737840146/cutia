@@ -15,13 +15,15 @@ function base64ToArrayBuffer({ base64 }: { base64: string }): ArrayBuffer {
 
 export async function generateSpeechFromText({
 	text,
+	voice,
 }: {
 	text: string;
+	voice?: string;
 }): Promise<TtsResult> {
 	const response = await fetch("/api/tts/generate", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ text }),
+		body: JSON.stringify({ text, voice }),
 	});
 
 	if (!response.ok) {

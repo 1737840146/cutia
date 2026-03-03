@@ -5,6 +5,7 @@ const TTS_API_BASE = "https://api.milorapart.top/apis/mbAIsc";
 
 const requestSchema = z.object({
 	text: z.string().min(1, "Text is required").max(2000, "Text too long"),
+	voice: z.string().optional(),
 });
 
 const upstreamResponseSchema = z.object({

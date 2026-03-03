@@ -23,6 +23,8 @@ import { clamp } from "@/utils/math";
 import { useEditor } from "@/hooks/use-editor";
 import { DEFAULT_COLOR } from "@/constants/project-constants";
 import { MIN_FONT_SIZE, MAX_FONT_SIZE } from "@/constants/text-constants";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { TextSpeechPanel } from "./text-speech-panel";
 
 interface TextElementRef {
 	element: TextElement;
@@ -270,6 +272,12 @@ export function TextProperties({
 
 	return (
 		<div className="flex h-full flex-col" ref={containerRef}>
+			<Tabs defaultValue="style" className="flex h-full flex-col">
+				<TabsList className="border-b px-3 py-2">
+					<TabsTrigger value="style">{t("Style")}</TabsTrigger>
+					<TabsTrigger value="speech">{t("Speech")}</TabsTrigger>
+				</TabsList>
+				<TabsContent value="style" className="mt-0 flex-1 overflow-auto">
 			<PanelBaseView className="p-0">
 				<PropertyGroup title={t("Content")} hasBorderTop={false} collapsible={false}>
 					<Textarea
@@ -1184,6 +1192,11 @@ export function TextProperties({
 					</div>
 				</PropertyGroup>
 			</PanelBaseView>
+				</TabsContent>
+				<TabsContent value="speech" className="mt-0 flex-1 overflow-auto">
+					<TextSpeechPanel elements={elementRefs} />
+				</TabsContent>
+			</Tabs>
 		</div>
 	);
 }
