@@ -21,8 +21,7 @@ import {
 	PropertyItemValue,
 } from "./property-item";
 import { useEditor } from "@/hooks/use-editor";
-import { generateSpeechFromText } from "@/lib/tts/service";
-import { buildUploadAudioElement } from "@/lib/timeline/element-utils";
+import { generateAndInsertSpeech } from "@/lib/tts/service";
 import {
 	VOICE_PACKS,
 	DEFAULT_VOICE_PACK,
@@ -59,57 +58,20 @@ export function TextSpeechPanel({
 		let successCount = 0;
 		let failCount = 0;
 
-		const tracks = editor.timeline.getTracks();
-		const audioTrack = tracks.find((track) => track.type === "audio");
-		const trackId = audioTrack
-			? audioTrack.id
-			: editor.timeline.addTrack({ type: "audio" });
-
-		const projectId = editor.project.getActive().metadata.id;
-
 		for (const { element, trackId: textTrackId } of elementRefs) {
 			try {
-				const result = await generateSpeechFromText({
+				const { duration } = await generateAndInsertSpeech({
+					editor,
 					text: element.content,
-					voice: selectedVoice,
-				});
-
-				const name = `TTS: ${element.content.slice(0, 30)}`;
-				const file = new File([result.blob], `${name}.mp3`, {
-					type: "audio/mpeg",
-				});
-				const url = URL.createObjectURL(result.blob);
-
-				const mediaId = await editor.media.addMediaAsset({
-					projectId,
-					asset: {
-						name,
-						type: "audio",
-						file,
-						url,
-						duration: result.duration,
-						ephemeral: true,
-					},
-				});
-
-				const audioElement = buildUploadAudioElement({
-					mediaId,
-					name,
-					duration: result.duration,
 					startTime: element.startTime,
-					buffer: result.buffer,
-				});
-
-				editor.timeline.insertElement({
-					placement: { mode: "explicit", trackId },
-					element: audioElement,
+					voice: selectedVoice,
 				});
 
 				if (alignDuration) {
 					editor.timeline.updateElementDuration({
 						trackId: textTrackId,
 						elementId: element.id,
-						duration: result.duration,
+						duration,
 					});
 				}
 
