@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { usePreviewInteraction } from "@/hooks/use-preview-interaction";
 import { SelectionOverlay } from "./selection-overlay";
+import { GuideLines } from "./guide-lines";
 
 export function PreviewInteractionOverlay({
 	canvasRef,
@@ -17,7 +18,11 @@ export function PreviewInteractionOverlay({
 		onScaleStart,
 		onResizeStart,
 		isTransforming,
+		activeGuides,
 	} = usePreviewInteraction({ canvasRef, overlayRef });
+
+	const canvasWidth = canvasRef.current?.width ?? 0;
+	const canvasHeight = canvasRef.current?.height ?? 0;
 
 	return (
 		<div
@@ -27,6 +32,12 @@ export function PreviewInteractionOverlay({
 			onPointerMove={onPointerMove}
 			onPointerUp={onPointerUp}
 		>
+			<GuideLines
+				guides={activeGuides}
+				displaySize={displaySize}
+				canvasWidth={canvasWidth}
+				canvasHeight={canvasHeight}
+			/>
 			<SelectionOverlay
 				displaySize={displaySize}
 				onScaleStart={onScaleStart}

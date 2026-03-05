@@ -1,6 +1,5 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, useSyncExternalStore } from "react";
 import { useEditor } from "@/hooks/use-editor";
-import { useSyncExternalStore } from "react";
 import type {
 	Transform,
 	TimelineTrack,
@@ -9,9 +8,27 @@ import type {
 } from "@/types/timeline";
 import { hitTestElements } from "@/lib/preview/hit-test";
 import { FONT_SIZE_SCALE_REFERENCE } from "@/constants/text-constants";
+import {
+	getElementHalfSize,
+	getElementCenterInCanvas,
+	type ElementHalfSize,
+} from "@/lib/preview/element-bounds";
+import { computePreviewSnap, type SnapGuide } from "@/lib/preview/snap";
 
 type ScaleHandle = "top-left" | "top-right" | "bottom-left" | "bottom-right";
 type ResizeHandle = "left" | "right";
+
+interface SnapContext {
+	elementHalfSize: ElementHalfSize;
+	otherElementBounds: Array<{
+		centerX: number;
+		centerY: number;
+		halfWidth: number;
+		halfHeight: number;
+	}>;
+	canvasWidth: number;
+	canvasHeight: number;
+}
 
 interface DragState {
 	startX: number;
@@ -22,6 +39,7 @@ interface DragState {
 		elementId: string;
 		initialTransform: Transform;
 	}>;
+	snapContext: SnapContext | null;
 }
 
 interface ScaleState {
@@ -58,6 +76,7 @@ export function usePreviewInteraction({
 	const editor = useEditor();
 	const [isDragging, setIsDragging] = useState(false);
 	const [isScaling, setIsScaling] = useState(false);
+	const [activeGuides, setActiveGuides] = useState<SnapGuide[]>([]);
 	const dragStateRef = useRef<DragState | null>(null);
 	const scaleStateRef = useRef<ScaleState | null>(null);
 	const resizeStateRef = useRef<ResizeState | null>(null);
@@ -120,6 +139,8 @@ export function usePreviewInteraction({
 					selected.elementId === hitResult.element.id,
 			);
 
+			let draggedElementIds: Set<string>;
+
 			if (!isAlreadySelected) {
 				editor.selection.setSelectedElements({
 					elements: [
@@ -129,6 +150,8 @@ export function usePreviewInteraction({
 						},
 					],
 				});
+
+				draggedElementIds = new Set([hitResult.element.id]);
 
 				dragStateRef.current = {
 					startX: startPos.x,
@@ -141,6 +164,7 @@ export function usePreviewInteraction({
 							initialTransform: hitResult.transform,
 						},
 					],
+					snapContext: null,
 				};
 			} else {
 				const elementsWithTracks = editor.timeline.getElementsWithTracks({
@@ -157,6 +181,10 @@ export function usePreviewInteraction({
 
 				if (draggableElements.length === 0) return;
 
+				draggedElementIds = new Set(
+					draggableElements.map(({ element }) => element.id),
+				);
+
 				dragStateRef.current = {
 					startX: startPos.x,
 					startY: startPos.y,
@@ -167,8 +195,19 @@ export function usePreviewInteraction({
 						initialTransform: (element as { transform: Transform })
 							.transform,
 					})),
+					snapContext: null,
 				};
 			}
+
+			dragStateRef.current.snapContext = buildSnapContext({
+				tracks,
+				mediaAssets,
+				currentTime,
+				canvasWidth,
+				canvasHeight,
+				draggedElementIds,
+				primaryElement: dragStateRef.current.elements[0],
+			});
 
 			setIsDragging(true);
 			event.currentTarget.setPointerCapture(event.pointerId);
@@ -360,29 +399,49 @@ export function usePreviewInteraction({
 			const deltaX = currentPos.x - dragStateRef.current.startX;
 			const deltaY = currentPos.y - dragStateRef.current.startY;
 
-			for (const { trackId, elementId, initialTransform } of dragStateRef
-				.current.elements) {
-				const newPosition = {
-					x: initialTransform.position.x + deltaX,
-					y: initialTransform.position.y + deltaY,
-				};
+			const primaryElement = dragStateRef.current.elements[0];
+			const primaryRawPosition = {
+				x: primaryElement.initialTransform.position.x + deltaX,
+				y: primaryElement.initialTransform.position.y + deltaY,
+			};
 
-				editor.timeline.updateElements({
-					updates: [
-						{
-							trackId,
-							elementId,
-							updates: {
-								transform: {
-									...initialTransform,
-									position: newPosition,
-								},
+			let snapDeltaX = 0;
+			let snapDeltaY = 0;
+			let newGuides: SnapGuide[] = [];
+
+			const { snapContext } = dragStateRef.current;
+			if (snapContext) {
+				const snapResult = computePreviewSnap({
+					position: primaryRawPosition,
+					elementHalfSize: snapContext.elementHalfSize,
+					canvasWidth: snapContext.canvasWidth,
+					canvasHeight: snapContext.canvasHeight,
+					otherElements: snapContext.otherElementBounds,
+				});
+				snapDeltaX = snapResult.snappedPosition.x - primaryRawPosition.x;
+				snapDeltaY = snapResult.snappedPosition.y - primaryRawPosition.y;
+				newGuides = snapResult.activeGuides;
+			}
+
+			setActiveGuides(newGuides);
+
+			const updates = dragStateRef.current.elements.map(
+				({ trackId, elementId, initialTransform }) => ({
+					trackId,
+					elementId,
+					updates: {
+						transform: {
+							...initialTransform,
+							position: {
+								x: initialTransform.position.x + deltaX + snapDeltaX,
+								y: initialTransform.position.y + deltaY + snapDeltaY,
 							},
 						},
-					],
-					pushHistory: false,
-				});
-			}
+					},
+				}),
+			);
+
+			editor.timeline.updateElements({ updates, pushHistory: false });
 		},
 		[isDragging, isScaling, getCanvasCoordinates, editor],
 	);
@@ -521,41 +580,62 @@ export function usePreviewInteraction({
 			const deltaX = currentPos.x - dragStateRef.current.startX;
 			const deltaY = currentPos.y - dragStateRef.current.startY;
 
-			const hasMovement = Math.abs(deltaX) > 0.5 || Math.abs(deltaY) > 0.5;
+			const hasMovement =
+				Math.abs(deltaX) > 0.5 || Math.abs(deltaY) > 0.5;
 
 			if (!hasMovement) {
 				dragStateRef.current = null;
 				setIsDragging(false);
+				setActiveGuides([]);
 				event.currentTarget.releasePointerCapture(event.pointerId);
 				return;
+			}
+
+			const primaryElement = dragStateRef.current.elements[0];
+			const primaryRawPosition = {
+				x: primaryElement.initialTransform.position.x + deltaX,
+				y: primaryElement.initialTransform.position.y + deltaY,
+			};
+
+			let snapDeltaX = 0;
+			let snapDeltaY = 0;
+
+			const { snapContext } = dragStateRef.current;
+			if (snapContext) {
+				const snapResult = computePreviewSnap({
+					position: primaryRawPosition,
+					elementHalfSize: snapContext.elementHalfSize,
+					canvasWidth: snapContext.canvasWidth,
+					canvasHeight: snapContext.canvasHeight,
+					otherElements: snapContext.otherElementBounds,
+				});
+				snapDeltaX = snapResult.snappedPosition.x - primaryRawPosition.x;
+				snapDeltaY = snapResult.snappedPosition.y - primaryRawPosition.y;
 			}
 
 			editor.timeline.updateTracks(dragStateRef.current.tracksSnapshot);
 
 			const updates = dragStateRef.current.elements.map(
-				({ trackId, elementId, initialTransform }) => {
-					const newPosition = {
-						x: initialTransform.position.x + deltaX,
-						y: initialTransform.position.y + deltaY,
-					};
-
-					return {
-						trackId,
-						elementId,
-						updates: {
-							transform: {
-								...initialTransform,
-								position: newPosition,
+				({ trackId, elementId, initialTransform }) => ({
+					trackId,
+					elementId,
+					updates: {
+						transform: {
+							...initialTransform,
+							position: {
+								x: initialTransform.position.x + deltaX + snapDeltaX,
+								y: initialTransform.position.y + deltaY + snapDeltaY,
 							},
 						},
-					};
-				},
+					},
+				}),
 			);
 
 			editor.timeline.updateElements({ updates });
 
 			dragStateRef.current = null;
 			setIsDragging(false);
+			setActiveGuides([]);
 			event.currentTarget.releasePointerCapture(event.pointerId);
 		},
 		[isDragging, isScaling, getCanvasCoordinates, editor, overlayRef],
@@ -570,5 +650,91 @@ export function usePreviewInteraction({
 		onScaleStart: handleScaleStart,
 		onResizeStart: handleResizeStart,
 		isTransforming: isDragging || isScaling || isResizing,
+		activeGuides,
 	};
 }
+
+function buildSnapContext({
+	tracks,
+	mediaAssets,
+	currentTime,
+	canvasWidth,
+	canvasHeight,
+	draggedElementIds,
+	primaryElement,
+}: {
+	tracks: TimelineTrack[];
+	mediaAssets: ReturnType<ReturnType<typeof useEditor>["media"]["getAssets"]>;
+	currentTime: number;
+	canvasWidth: number;
+	canvasHeight: number;
+	draggedElementIds: Set<string>;
+	primaryElement: { elementId: string; initialTransform: Transform };
+}): SnapContext | null {
+	const mediaMap = new Map(mediaAssets.map((a) => [a.id, a]));
+
+	let primaryEl: TimelineElement | undefined;
+	for (const track of tracks) {
+		const found = track.elements.find((e) => e.id === primaryElement.elementId);
+		if (found) {
+			primaryEl = found;
+			break;
+		}
+	}
+
+	if (!primaryEl || primaryEl.type === "audio") return null;
+
+	const elementHalfSize = getElementHalfSize({
+		element: primaryEl,
+		transform: primaryElement.initialTransform,
+		mediaMap,
+		canvasWidth,
+		canvasHeight,
+	});
+
+	if (!elementHalfSize) return null;
+
+	const otherElementBounds: SnapContext["otherElementBounds"] = [];
+
+	for (const track of tracks) {
+		if ("hidden" in track && track.hidden) continue;
+		for (const element of track.elements) {
+			if (element.type === "audio") continue;
+			if ("hidden" in element && element.hidden) continue;
+			if (draggedElementIds.has(element.id)) continue;
+
+			const isVisible =
+				currentTime >= element.startTime &&
+				currentTime < element.startTime + element.duration;
+			if (!isVisible) continue;
+
+			const transform = (element as { transform: Transform }).transform;
+			const otherHalf = getElementHalfSize({
+				element,
+				transform,
+				mediaMap,
+				canvasWidth,
+				canvasHeight,
+			});
+			if (!otherHalf) continue;
+
+			const center = getElementCenterInCanvas({
+				element,
+				transform,
+				canvasWidth,
+				canvasHeight,
+				halfSize: otherHalf,
+			});
+
+			otherElementBounds.push({
+				centerX: center.x,
+				centerY: center.y,
+				halfWidth: otherHalf.halfWidth,
+				halfHeight: otherHalf.halfHeight,
+			});
+		}
+	}
+
+	return { elementHalfSize, otherElementBounds, canvasWidth, canvasHeight };
+}
+
