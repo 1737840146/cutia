@@ -1,8 +1,8 @@
 import type { TextElement } from "@/types/timeline";
 import { TIMELINE_CONSTANTS } from "./timeline-constants";
 
-export const MIN_FONT_SIZE = 5;
-export const MAX_FONT_SIZE = 300;
+export const MIN_FONT_SIZE = 1;
+export const MAX_FONT_SIZE = 38;
 
 /**
  * higher value: smaller font size
