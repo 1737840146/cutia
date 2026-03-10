@@ -24,6 +24,10 @@ export function Header() {
 			label: t('Features'),
 			href: "#features",
 		},
+		{
+			label: t("Why not CapCut?"),
+			href: "/why-not-capcut",
+		},
 	];
 
 	return (
