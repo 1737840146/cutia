@@ -17,6 +17,7 @@ export class StickerNode extends VisualNode<StickerNodeParams> {
 
 	private async load() {
 		const image = new Image();
+		image.crossOrigin = "anonymous";
 		this.image = image;
 		const color = this.params.color
 			? `&color=${encodeURIComponent(this.params.color)}`

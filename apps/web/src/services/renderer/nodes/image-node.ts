@@ -16,6 +16,7 @@ export class ImageNode extends VisualNode<ImageNodeParams> {
 
 	private async load() {
 		const image = new Image();
+		image.crossOrigin = "anonymous";
 		this.image = image;
 
 		await new Promise<void>((resolve, reject) => {
