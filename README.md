@@ -52,10 +52,10 @@ Open `http://localhost:3000`.
 
 ## Full Local Setup (With Services)
 
-From repository root:
+Start only the backing services for local development:
 
 ```bash
-docker-compose up -d
+docker compose up redis serverless-redis-http -d
 ```
 
 Then in `apps/web`:
@@ -67,12 +67,20 @@ cp .env.example .env.local
 Required env values:
 
 ```bash
+UPSTASH_REDIS_REST_URL="http://localhost:8079"
+UPSTASH_REDIS_REST_TOKEN="cutia_redis_token"
+NODE_ENV="development"
+```
+
+To enable authentication, also start PostgreSQL and add these env values:
+
+```bash
+docker compose up redis serverless-redis-http postgres -d
+```
+
+```bash
 DATABASE_URL="postgresql://cutia:cutia@localhost:5432/cutia"
 BETTER_AUTH_SECRET="your-generated-secret-here"
-BETTER_AUTH_URL="http://localhost:3000"
-UPSTASH_REDIS_REST_URL="http://localhost:8079"
-UPSTASH_REDIS_REST_TOKEN="example_token"
-NODE_ENV="development"
 ```
 
 Generate `BETTER_AUTH_SECRET`:
@@ -103,6 +111,18 @@ Areas currently under active refactor:
 
 - Preview panel internals (fonts/stickers/effects)
 - Export pipeline internals
+
+## Docker Deployment
+
+Run the full application with Docker:
+
+```bash
+docker compose up --build
+```
+
+Open `http://localhost:3000`.
+
+This starts Redis and the web app. To enable authentication, uncomment the PostgreSQL service and related env vars in `docker-compose.yaml`.
 
 ## Deploy
 
