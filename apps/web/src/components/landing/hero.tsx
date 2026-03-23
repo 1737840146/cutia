@@ -149,7 +149,7 @@ export function Hero() {
 							{t('Start editing')}
 						</Button>
 					</Link>
-					<Link
+					<a
 						href={SOCIAL_LINKS.github}
 						target="_blank"
 						rel="noopener noreferrer"
@@ -163,7 +163,7 @@ export function Hero() {
 							{t('View on GitHub')}
 							<ArrowRight className="size-4" />
 						</Button>
-					</Link>
+					</a>
 				</motion.div>
 			</div>
 
